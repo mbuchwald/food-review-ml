@@ -1,4 +1,6 @@
 import numpy as np
+import heapq
+import prediction
 
 TRAINING_SET = "set/train.csv"
 ID_FIELD = 0
@@ -9,7 +11,9 @@ TEXT_FIELD_START = 9
 FILTERED_CHARACTERS = "'!?()[]-$:\""
 SPACED_CHARACTERS = ",/."
 
-TAM_VECS = 100
+TAM_VECS = 1000
+CANT_STOPWORDS = 40
+SAVED_STOPWORDS = ['coffee', 'if', 'product', 'one', 'taste', 'very', 'great', 'them', 'are', 'its', 'as', 'just', 'or', 'so', 'at', 'not', 'they', 'that', 'you', 'good', 'have', 'i', 'my', 'the', 'these', 'on', 'like', 'is', 'and', 'for', 'be', 'of', 'in', 'was', 'but', 'it', 'a', 'with', 'this', 'to']
 
 def relevant_training_fields(line):
 	no_ids = line[line.index(",") + 1:]
@@ -45,7 +49,7 @@ def parse():
 			#Por ahora no le doy bola al summary
 			texts.append(clean(text))
 			predictions.append(prediction)
-		except ValueError:
+ 		except ValueError:
 			#Hay solo 5 con errores
 			errores.append(line.strip())
 	infile.close()
@@ -63,17 +67,42 @@ def bigramas(words, vector):
 	return vector
 
 def word2vec(words):
-	return unigramas(words, [0 for i in TAM_VECS])
+	return bigramas(words, [0 for i in xrange(TAM_VECS)])
+
+def get_stopwords(texts):
+	if SAVED_STOPWORDS:
+		return SAVED_STOPWORDS[:]
+	words = {}
+	for text in texts:
+		for word in text:
+			words[word] = words.get(word, 0) + 1
+
+	q = []
+	for word in words:
+		if len(q) < CANT_STOPWORDS:
+			heapq.heappush(q, (words[word], word))
+		elif q[0][0] < words[word]:
+			heapq.heappush(q, (words[word], word))
+			heapq.heappop(q)
+	return map(lambda x: x[1], q)
+
+def filter_stopwords(tests):
+	stop_words = get_stop_words(texts)
+	return map(lambda text: filter(lambda word: word not in stop_words, text), texts)
 
 def main():
-	texts, predictions = parse()
-	#Por ahora no pienso en sacar las stopwords, pero queda para probar
-	vecs = [word2vec(text) for text in texts]
+	texts, predictions = parse() 
 
-	for vec in vecs:
-		print vec
-		raw_input()
+	#Por ahora no pienso en sacar las stopwords, pero queda para probar:
+	#texts = filter_stopwords(texts)
+	vecs = np.array(map(lambda text: word2vec(text), texts))
+	vecs -= vecs.mean(axis=0)
+	vecs /= vecs.std(axis=0)
+	predictions = np.array(predictions)
 
+	prediction.train(vecs, predictions)	
+
+	
 
 if __name__ == "__main__":
 	main()
