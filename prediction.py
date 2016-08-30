@@ -7,13 +7,14 @@ def mlp(dim):
 	model = Sequential()
 	model.add(Dense(256, input_dim=dim, init='normal', activation='relu'))
 	#model.add(Dropout(0.5))
-	model.add(Dense(256, activation='relu'))
+	model.add(Dense(256, init='normal', activation='relu'))
 	#model.add(Dropout(0.5))
-	model.add(Dense(256, activation='relu'))
+	model.add(Dense(256, init='normal', activation='relu'))
 	#model.add(Dropout(0.5))
-	model.add(Dense(1, activation='sigmoid'))
+	model.add(Dense(1, init='normal', activation='sigmoid'))
 
-	model.compile(loss='binary_crossentropy',
+	model.compile(#loss='binary_crossentropy',
+			loss='mean_squared_error',
               optimizer='rmsprop',
               metrics=['accuracy'])
 
@@ -40,7 +41,7 @@ def regression_with_regularization(dim):
 	return model
 
 
-def train(words, predictions, iterations = 300):
+def train(words, predictions, iterations = 100):
 
 	model = mlp(words.shape[1])
 	predictions = (predictions.astype('float') - 1.0)/ 4.0

@@ -1,17 +1,20 @@
+import sys
 import numpy as np
 import heapq
 import prediction
+from keras.models import load_model
 
 TRAINING_SET = "set/train.csv"
+TEST_SET = "set/test.csv"
 ID_FIELD = 0
 PREDICTION_FIELD = 6
 SUMMARY_FIELD = 8
 TEXT_FIELD_START = 9
 
-FILTERED_CHARACTERS = "'!?()[]-$:\""
+FILTERED_CHARACTERS = "'!?()[]-$:#\""
 SPACED_CHARACTERS = ",/."
 
-TAM_VECS = 3000
+TAM_VECS = 1000
 CANT_STOPWORDS = 40
 SAVED_STOPWORDS = ['coffee', 'if', 'product', 'one', 'taste', 'very', 'great', 'them', 'are', 'its', 'as', 'just', 'or', 'so', 'at', 'not', 'they', 'that', 'you', 'good', 'have', 'i', 'my', 'the', 'these', 'on', 'like', 'is', 'and', 'for', 'be', 'of', 'in', 'was', 'but', 'it', 'a', 'with', 'this', 'to']
 
@@ -49,7 +52,7 @@ def parse():
 			#Por ahora no le doy bola al summary
 			texts.append(clean(text))
 			predictions.append(prediction)
- 			if len(predictions) == 100000: break
+ 			if len(predictions) == 200000: break
 		except ValueError:
 			#Hay solo 5 con errores
 			errores.append(line.strip())
@@ -68,7 +71,7 @@ def bigramas(words, vector):
 	return vector
 
 def word2vec(words):
-	return bigramas(words, [0 for i in xrange(TAM_VECS)])
+	return unigramas(words, [0 for i in xrange(TAM_VECS)])
 
 def get_stopwords(texts):
 	if SAVED_STOPWORDS:
@@ -87,21 +90,65 @@ def get_stopwords(texts):
 			heapq.heappop(q)
 	return map(lambda x: x[1], q)
 
-def filter_stopwords(tests):
-	stop_words = get_stop_words(texts)
+def filter_stopwords(texts):
+	stop_words = get_stopwords(texts)
 	return map(lambda text: filter(lambda word: word not in stop_words, text), texts)
 
-def main():
-	texts, predictions = parse() 
+def relevant_test_fields(line):
+	last_fields = line.split('","')
+	text = last_fields[-1]
+	summary = last_fields[-2].split(',"')[-1]
+	id = line.split(',')[0]
+	return id, summary, text
 
+def parse_tests():
+	infile = open(TEST_SET)
+
+	infile.readline()
+	texts = []
+	ids = []
+	errores = []
+	for line in infile:
+		try:
+			id, summary, text = relevant_test_fields(line.strip())
+			#Por ahora no le doy bola al summary
+			texts.append(clean(text))
+			ids.append(id)
+		except ValueError:
+			#Hay solo 5 con errores
+			errores.append(line.strip())
+	infile.close()
+
+	return ids, texts
+
+def texts_to_array(texts):
 	#Por ahora no pienso en sacar las stopwords, pero queda para probar:
 	#texts = filter_stopwords(texts)
-	vecs = np.array(map(lambda text: word2vec(text), texts)).astype('float')
-	vecs -= vecs.mean(axis=0)
-	vecs /= vecs.std(axis=0)
-	predictions = np.array(predictions)
+	return np.array(map(lambda text: word2vec(text), texts)).astype('float')
 
-	prediction.train(vecs, predictions)	
+def main():
+	if len(sys.argv) > 1:
+		texts, predictions = parse() 
+	
+		vecs = texts_to_array(texts)
+		vecs -= vecs.mean(axis=0)
+		vecs /= vecs.std(axis=0)
+		predictions = np.array(predictions)
+
+		model = prediction.train(vecs, predictions)	
+		model.save('model.h5')
+	else:
+		model = load_model('model.h5')
+
+	ids, tests = parse_tests()
+	tests = texts_to_array(tests)
+	proba = model.predict_proba(tests, batch_size=1000)
+
+	outfile = open("submit.txt", 'w')
+	outfile.write('Id,Prediction\n')
+	for i in range(len(ids)):
+		outfile.write(ids[i] + "," + str(round(proba[i][0] * 4 + 1, 2)) + '\n')
+	outfile.close()
 
 	
 
