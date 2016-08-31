@@ -52,7 +52,7 @@ def parse():
 			#Por ahora no le doy bola al summary
 			texts.append(clean(text))
 			predictions.append(prediction)
- 			if len(predictions) == 200000: break
+ 			#if len(predictions) == 200000: break
 		except ValueError:
 			#Hay solo 5 con errores
 			errores.append(line.strip())
@@ -126,27 +126,35 @@ def texts_to_array(texts):
 	#texts = filter_stopwords(texts)
 	return np.array(map(lambda text: word2vec(text), texts)).astype('float')
 
-def main():
-	if len(sys.argv) > 1:
-		texts, predictions = parse() 
-	
-		vecs = texts_to_array(texts)
-		vecs -= vecs.mean(axis=0)
-		vecs /= vecs.std(axis=0)
-		predictions = np.array(predictions)
+def normalize(vec):
+	return (vec - vec.mean(axis=0)) / vec.std(axis=0)
 
+def main():
+	#Analizar agregar interacciones entre features
+	texts, predictions = parse() 
+	
+	vecs = texts_to_array(texts)
+	mean = vecs.mean(axis=0)
+	std = vecs.std(axis=0)
+	vecs = (vecs - mean) / std
+
+	predictions = np.array(predictions)
+
+	if len(sys.argv) > 1:
 		model = prediction.train(vecs, predictions)	
 		model.save('model.h5')
 	else:
 		model = load_model('model.h5')
+		
 
 	ids, tests = parse_tests()
 	tests = texts_to_array(tests)
+	tests = (tests - mean) / std
 	proba = model.predict_proba(tests, batch_size=1000)
 
 	outfile = open("submit.txt", 'w')
 	outfile.write('Id,Prediction\n')
-	for i in range(len(ids)):
+	for i in range(len(ids)):	
 		outfile.write(ids[i] + "," + str(round(proba[i][0] * 4 + 1, 2)) + '\n')
 	outfile.close()
 
