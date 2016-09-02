@@ -140,12 +140,13 @@ def main():
 
 	predictions = np.array(predictions)
 
-	if len(sys.argv) > 1:
+	if len(sys.argv) == 1:
 		model = prediction.train(vecs, predictions)	
-		model.save('model.h5')
 	else:
 		model = load_model('model.h5')
+		model = prediction.train(vecs, predictions, model=model)
 		
+	model.save('model.h5')	
 
 	ids, tests = parse_tests()
 	tests = texts_to_array(tests)

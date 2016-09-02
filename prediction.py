@@ -35,9 +35,10 @@ def regression_with_regularization(dim):
 	return model
 
 
-def train(words, predictions, iterations = 500):
+def train(words, predictions, iterations = 800, model = None):
 
-	model = mlp(words.shape[1])
+	if model is None: 
+		model = mlp(words.shape[1])
 	predictions = (predictions.astype('float') - 1.0)/ 4.0
 
 	history = model.fit(words, predictions,
